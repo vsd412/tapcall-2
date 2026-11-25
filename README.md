@@ -25,9 +25,22 @@ Open the repository root to run Flutter. For PlatformIO, open the **firmware** f
 
 Power the board and enable Bluetooth on the phone. Open **Manage contacts → Connect TapCall board**, allow the Android permission prompt, then close settings. If there are multiple boards in range, choose the device identifier for yours. The three contact buttons select the first, second and third person on the displayed page. The previous and next buttons switch pages. Reconnect through settings after restarting the app or losing the connection.
 
+The original harness assigns Next to GPIO19, which also carries native USB D−. Use the board’s USB-to-UART connector for flashing and testing with that harness. Check the module marking before using the end-call input on GPIO36. Some DevKitC-1 modules reserve this pin for octal flash or PSRAM. On those variants, move the wire and update the pin assignment in `firmware/src/main.cpp` before flashing. [ESP32-S3 USB pinout](https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/api-guides/usb-serial-jtag-console.html) · [DevKitC-1 hardware guide](https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32s3/esp-dev-kits-en-master-esp32s3.pdf)
+
 For a hardware check, add four contacts with consent to test. Verify GPIO 6, 8 and 13 select the correct visible people, GPIO 19 advances to the fourth person, GPIO 14 goes back, and unused slots on the last page do nothing. Try two rapid presses, unplug the board, check that touch still works and reconnect. Verify real call outcomes on a signed-in WhatsApp phone.
 
 The firmware also reports accept, end, SOS, volume and motion using the original board protocol. This Android version only acts on the three contact keys and two page keys while the contact screen is in the foreground. Use WhatsApp's on-screen controls to answer or hang up.
+
+### Repeat the firmware stress test
+
+From the repository root on macOS or Linux, compile and run the same input logic used by the board:
+
+```sh
+c++ -std=c++11 -O2 -fsanitize=address,undefined firmware/test/stress.cpp -o /tmp/tapcall-firmware-stress
+/tmp/tapcall-firmware-stress
+```
+
+The test drives all eight key positions with simulated bounce, overlapping presses, held keys across reconnects, and variable polling intervals. It also checks noisy volume input, motion glitches, and the 32-bit timer rollover. For the physical check, reconnect while holding a contact key. The phone should stay idle until all keys have been released and one is deliberately pressed again. Pressing two keys together should leave the selected person and page unchanged.
 
 ## Calling behavior
 
