@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart' show BluetoothDevice;
 
+import 'board.dart';
 import 'calling.dart';
 import 'contact_tile.dart';
 import 'contacts.dart';
@@ -7,7 +9,13 @@ import 'editor.dart';
 import 'words.dart';
 
 class Home extends StatefulWidget {
-  const Home({super.key, required this.book, required this.provider});
+  const Home({
+    super.key,
+    required this.book,
+    required this.provider,
+    this.board,
+  });
+  final TapBoard? board;
   final ContactBook book;
   final CallProvider provider;
   @override
@@ -29,6 +37,91 @@ class _HomeState extends State<Home> {
   void initState() {
     super.initState();
     load();
+  }
+
+  late final board = widget.board ?? TapBoard();
+  bool connected = false;
+  int page = 0;
+
+  @override
+  void dispose() {
+    board.close();
+    super.dispose();
+  }
+
+  Future<void> configureBoard() async {
+    final w = Words(context);
+    setState(() => working = true);
+    try {
+      if (connected) {
+        await board.close();
+        if (mounted) {
+          setState(() {
+            connected = false;
+            page = 0;
+          });
+        }
+        return;
+      }
+      final devices = await board.scan();
+      if (!mounted) return;
+      if (devices.isEmpty) {
+        message(w.noBoard);
+        return;
+      }
+      final device = devices.length == 1
+          ? devices.first
+          : await showDialog<BluetoothDevice>(
+              context: context,
+              builder: (ctx) => SimpleDialog(
+                title: Text(w.connectBoard),
+                children: [
+                  for (final d in devices)
+                    SimpleDialogOption(
+                      onPressed: () => Navigator.pop(ctx, d),
+                      child: Text(d.remoteId.str),
+                    ),
+                ],
+              ),
+            );
+      if (device == null || !mounted) return;
+      await board.connect(device, handleButton, () {
+        if (!mounted) return;
+        setState(() {
+          connected = false;
+          page = 0;
+        });
+        message(w.boardLost);
+      });
+      if (!mounted) {
+        await board.close();
+        return;
+      }
+      setState(() => connected = true);
+    } catch (_) {
+      if (mounted) message(w.boardError);
+    } finally {
+      if (mounted) setState(() => working = false);
+    }
+  }
+
+  void handleButton(int slot) {
+    if (!mounted ||
+        !connected ||
+        managing ||
+        working ||
+        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed ||
+        ModalRoute.of(context)?.isCurrent != true) {
+      return;
+    }
+    final count = people?.length ?? 0;
+    if (slot == 254 || slot == 255) {
+      final last = count == 0 ? 0 : (count - 1) ~/ 3;
+      setState(() => page = (page + (slot == 254 ? -1 : 1)).clamp(0, last));
+    } else {
+      final index = page * 3 + slot - 1;
+      if (index >= 0 && index < count) call(people![index]);
+    }
   }
 
   Future<void> load() async {
@@ -55,7 +148,12 @@ class _HomeState extends State<Home> {
     setState(() => working = true);
     try {
       await widget.book.write(next);
-      if (mounted) setState(() => people = next);
+      if (mounted) {
+        setState(() {
+          people = next;
+          page = 0;
+        });
+      }
     } catch (_) {
       if (mounted) message(Words(context).error);
     } finally {
@@ -238,29 +336,61 @@ class _HomeState extends State<Home> {
                         ),
                       ),
                     ),
-                  for (var i = 0; i < rows.length; i++)
-                    if (managing)
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          rows[i].name,
-                          style: const TextStyle(fontSize: 22),
-                        ),
-                        subtitle: Text('+${rows[i].number}'),
-                        onTap: working ? null : () => edit(i),
-                        trailing: IconButton(
-                          tooltip: w.remove,
-                          onPressed: working ? null : () => remove(i),
-                          icon: const Icon(Icons.delete_outline),
-                        ),
-                      )
-                    else
-                      ContactTile(
-                        person: rows[i],
-                        label: w.video,
-                        color: colors[i % colors.length],
-                        onTap: working ? null : () => call(rows[i]),
+                  if (managing)
+                    OutlinedButton.icon(
+                      onPressed: working ? null : configureBoard,
+                      icon: const Icon(Icons.bluetooth),
+                      label: Text(
+                        connected ? w.disconnectBoard : w.connectBoard,
                       ),
+                    ),
+                  if (connected && !managing && rows.length > 3)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          tooltip: MaterialLocalizations.of(
+                            context,
+                          ).previousPageTooltip,
+                          onPressed: page > 0 ? () => handleButton(254) : null,
+                          icon: const Icon(Icons.chevron_left),
+                        ),
+                        Text('${page + 1} / ${(rows.length + 2) ~/ 3}'),
+                        IconButton(
+                          tooltip: MaterialLocalizations.of(
+                            context,
+                          ).nextPageTooltip,
+                          onPressed: (page + 1) * 3 < rows.length
+                              ? () => handleButton(255)
+                              : null,
+                          icon: const Icon(Icons.chevron_right),
+                        ),
+                      ],
+                    ),
+                  for (var i = 0; i < rows.length; i++)
+                    if (managing || !connected || i ~/ 3 == page)
+                      if (managing)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            rows[i].name,
+                            style: const TextStyle(fontSize: 22),
+                          ),
+                          subtitle: Text('+${rows[i].number}'),
+                          onTap: working ? null : () => edit(i),
+                          trailing: IconButton(
+                            tooltip: w.remove,
+                            onPressed: working ? null : () => remove(i),
+                            icon: const Icon(Icons.delete_outline),
+                          ),
+                        )
+                      else
+                        ContactTile(
+                          person: rows[i],
+                          label: w.video,
+                          color: colors[i % colors.length],
+                          onTap: working ? null : () => call(rows[i]),
+                        ),
                 ],
               ),
       ),

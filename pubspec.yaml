@@ -1,7 +1,7 @@
 name: tapcall_two
 description: Accessible calling shortcuts for Android.
 publish_to: none
-version: 2.0.1+2
+version: 2.1.0+3
 environment:
   sdk: '>=3.9.0 <4.0.0'
 dependencies:
@@ -9,6 +9,7 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+  flutter_blue_plus: 1.36.8
   image_picker: ^1.2.0
   shared_preferences: ^2.2.2
 dev_dependencies:

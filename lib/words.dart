@@ -13,6 +13,24 @@ class Words {
         : simplified;
   }
 
+  String get connectBoard =>
+      pick('Connect TapCall board', '連接 TapCall 控制板', '连接 TapCall 控制板');
+  String get disconnectBoard => pick('Disconnect board', '中斷控制板連線', '断开控制板连接');
+  String get noBoard => pick(
+    'No TapCall board found. Power it on and try again.',
+    '找不到控制板，請開啟電源後重試。',
+    '找不到控制板，请打开电源后重试。',
+  );
+  String get boardError => pick(
+    'Check Bluetooth and Nearby devices permission, then try again.',
+    '請檢查藍牙和附近裝置權限後重試。',
+    '请检查蓝牙和附近设备权限后重试。',
+  );
+  String get boardLost => pick(
+    'Board disconnected. Reconnect in Manage contacts.',
+    '控制板已中斷連線，可在管理聯絡人中重新連接。',
+    '控制板已断开，可在管理联系人中重新连接。',
+  );
   String get photo => pick('Choose a photo', '選擇相片', '选择照片');
   String get clearPhoto => pick('Remove photo', '移除相片', '移除照片');
   String get people => pick('My people', '我的聯絡人', '我的联系人');
