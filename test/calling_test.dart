@@ -37,10 +37,19 @@ void main() {
     expect(Person.parseNumber('++85223'), isNull);
   });
 
-  Future<TestCalls> start(WidgetTester t, {bool empty = false}) async {
+  Future<TestCalls> start(
+    WidgetTester t, {
+    bool empty = false,
+    bool two = false,
+  }) async {
     SharedPreferences.setMockInitialValues({});
     final book = ContactBook();
-    if (!empty) await book.write([const Person('Family', '85223456789')]);
+    if (!empty) {
+      await book.write([
+        const Person('Family', '85223456789'),
+        if (two) const Person('Friend', '85234567890'),
+      ]);
+    }
     final calls = TestCalls();
     await t.pumpWidget(TapCall(book: book, provider: calls));
     await t.pumpAndSettle();
@@ -113,6 +122,37 @@ void main() {
       await t.tap(find.widgetWithText(FilledButton, 'Remove contact'));
       await t.pumpAndSettle();
       expect(await ContactBook().read(), isEmpty);
+    },
+  );
+  testWidgets(
+    'alternating contacts cannot start a second launch during or immediately after handoff',
+    (t) async {
+      final calls = await start(t, two: true);
+      calls.pending = Completer();
+      await t.tap(find.text('Family'));
+      for (var i = 0; i < 20; i++) {
+        await t.tap(find.text(i.isEven ? 'Friend' : 'Family'));
+      }
+      calls.pending!.complete(CallOutcome.opened);
+      await t.pumpAndSettle();
+      await t.tap(find.text('Friend'));
+      expect(calls.videoRequests, ['85223456789']);
+    },
+  );
+
+  testWidgets(
+    'twenty failed attempts leave the next selected contact callable',
+    (t) async {
+      final calls = await start(t, two: true);
+      calls.outcome = CallOutcome.missing;
+      for (var i = 0; i < 20; i++) {
+        await t.tap(find.text(i.isEven ? 'Friend' : 'Family'));
+        await t.pump();
+      }
+      expect(
+        calls.videoRequests,
+        List.generate(20, (i) => i.isEven ? '85234567890' : '85223456789'),
+      );
     },
   );
 }

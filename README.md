@@ -35,3 +35,11 @@ The WhatsApp video contact MIME type is an integration detail, not a guaranteed 
 ## Device verification
 
 On a real Android phone, confirm that one tap reaches the intended person, that an unavailable shortcut offers the correct chat, and that a denied contacts permission still allows chat. Check large system text and TalkBack focus. An emulator can verify Android intent routing with a test receiver; only a signed-in WhatsApp installation and a consenting recipient can verify a real call.
+
+## Dedicated calling phone
+
+On the calling phone, open Android **Settings → Apps → Default apps → Home app** and choose **TapCall 2**. The exact menu name varies by manufacturer. The Home button or Home gesture now opens TapCall. A caregiver can restore the original launcher in the same setting. This is optional and is not kiosk lockdown.
+
+A failure to launch leaves the caller in TapCall. After Android hands off to WhatsApp, WhatsApp owns ringing, connection, errors, and hang-up. If its activity closes back to TapCall, the contact buttons are ready again. If WhatsApp keeps its chat or error screen open, use Home. TapCall does not use a timer to interrupt a call.
+
+To check a new WhatsApp or device version, try back-to-back calls to two consenting contacts, repeated taps on both buttons, a declined call, an unanswered call, loss of network during ringing, and hang-up from each end. Verify the recipient, the number of outgoing attempts, which screen remains, and that Home returns to the contact list.

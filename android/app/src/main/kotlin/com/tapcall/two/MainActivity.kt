@@ -22,6 +22,24 @@ class MainActivity : FlutterActivity() {
     private val clients = listOf("com.whatsapp", "com.whatsapp.w4b")
     private val videoType = "vnd.android.cursor.item/vnd.com.whatsapp.video.call"
 
+    // The launch reply arrives before WhatsApp necessarily takes focus.
+    private var blockedUntil = 0L
+    private var foregroundGeneration = 0
+    private var resumed = false
+    private val now: Long get() = android.os.SystemClock.elapsedRealtime()
+
+    override fun onResume() {
+        super.onResume()
+        resumed = true
+        blockedUntil = 0
+    }
+
+    override fun onPause() {
+        resumed = false
+        foregroundGeneration++
+        super.onPause()
+    }
+
     override fun configureFlutterEngine(engine: FlutterEngine) {
         super.configureFlutterEngine(engine)
         MethodChannel(engine.dartExecutor.binaryMessenger, "tapcall/whatsapp").setMethodCallHandler { call, reply ->
@@ -37,6 +55,7 @@ class MainActivity : FlutterActivity() {
                 "video", "chat" -> {
                     val number = call.arguments as? String
                     if (number == null || !Regex("[1-9][0-9]{5,14}").matches(number)) reply.success("invalid")
+                    else if (!resumed || now < blockedUntil) reply.success("ignored")
                     else if (call.method == "chat") reply.success(openChat(number))
                     else startVideo(number, reply)
                 }
@@ -69,6 +88,7 @@ class MainActivity : FlutterActivity() {
             reply.success("permission")
             return
         }
+        val generation = foregroundGeneration
         lookup.execute {
             val shortcut = try {
                 findVideoShortcut(number)
@@ -77,7 +97,11 @@ class MainActivity : FlutterActivity() {
                 null
             }
             runOnUiThread {
-                val opened = !isFinishing && !isDestroyed && shortcut != null &&
+                if (!resumed || generation != foregroundGeneration || now < blockedUntil || isFinishing || isDestroyed) {
+                    reply.success("ignored")
+                    return@runOnUiThread
+                }
+                val opened = shortcut != null &&
                     launch(Intent(Intent.ACTION_VIEW).setDataAndType(shortcut.uri, videoType).setPackage(shortcut.client))
                 reply.success(if (opened) "opened" else "manual")
             }
@@ -110,7 +134,11 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun launch(intent: Intent): Boolean {
-        return try { startActivity(intent); true }
+        return try {
+            startActivity(intent)
+            blockedUntil = now + 1500
+            true
+        }
         catch (_: ActivityNotFoundException) { false }
         catch (_: SecurityException) { false }
     }

@@ -1,6 +1,6 @@
 import 'package:flutter/services.dart';
 
-enum CallOutcome { opened, permission, manual, missing, unavailable }
+enum CallOutcome { opened, ignored, permission, manual, missing, unavailable }
 
 /// Implement this contract for an additional calling app or platform.
 abstract interface class CallProvider {

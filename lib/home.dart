@@ -127,8 +127,15 @@ class _HomeState extends State<Home> {
         ),
       );
 
+  final launchClock = Stopwatch()..start();
+  int? acceptedAt;
+
   Future<void> call(Person person) async {
-    if (working) return;
+    final last = acceptedAt;
+    if (working ||
+        (last != null && launchClock.elapsedMilliseconds - last < 700)) {
+      return;
+    }
     setState(() => working = true);
     final w = Words(context);
     try {
@@ -152,7 +159,9 @@ class _HomeState extends State<Home> {
               : CallOutcome.manual;
         }
       }
-      if (mounted && outcome != CallOutcome.opened) {
+      if (outcome == CallOutcome.opened) {
+        acceptedAt = launchClock.elapsedMilliseconds;
+      } else if (mounted && outcome != CallOutcome.ignored) {
         message(outcome == CallOutcome.missing ? w.missing : w.error);
       }
     } catch (_) {
